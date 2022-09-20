@@ -1,1 +1,2 @@
-# projeto-hpc1
+# Projeto de HPC
+Resolução da EDP de Poisson
