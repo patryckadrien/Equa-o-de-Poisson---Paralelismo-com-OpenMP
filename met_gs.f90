@@ -1,6 +1,8 @@
 module met_gs
     ! Código contendo o algoritmo iterativo de Gauss-Seidel, em forma de subroutine.
-    
+
+    use omp_lib
+
     implicit none
                           
     contains 
@@ -67,11 +69,11 @@ module met_gs
             
             integer :: n, i, m
             real(8) :: mat(0:m,0:n), somas(n)
-            
+
             do i = 1, n
                 somas(i) = sum(abs(mat(i,:)))
-            end do
-            
+            end do 
+
             norma_infinita_mat = maxval(somas(:))
             
             return
@@ -105,15 +107,15 @@ module met_gs
             
             integer :: m, n
             real(8) :: u_novo(0:m,0:n), u_exato(0:m,0:n)
-            
-            dif_rel = norma_infinita_mat(m, n, (u_exato - u_novo)) / norma_infinita_mat(m, n, u_exato)
+
+	    dif_rel = norma_infinita_mat(m, n, (u_exato - u_novo))/norma_infinita_mat(m, n, u_exato)
             
             return
         end function dif_rel
 
         !#######################################################################################################
-    
-        subroutine sub_metodo_gauss_seidel(n, m, u_ant, u_novo, tol, h, x, y)
+		    
+        subroutine sub_metodo_gauss_seidel(n, m, u_ant, u_novo, h, x, y)
             ! Método iterativo de Gauss-Seidel para obtenção das soluções da malha
             !
             ! Variáveis de entrada de relevância:
@@ -148,26 +150,37 @@ module met_gs
             !
             implicit none
         
-            integer :: n, m, k=0, i, j
-            real(8) :: u_ant(0:m,0:n), u_novo(0:m,0:n), delta = 1.d5, tol, h, &
-                        x(0:m), y(0:m)
-        
-            do while((delta >= tol))
-                do i=1, m-1
-                    do j=1, n-1 
+            integer :: n, m, i, j, it=1, max_it=1.d6, chunk
+            real(8) :: u_ant(0:m,0:n), u_novo(0:m,0:n), h,  x(0:m), y(0:m)
+	    
+	    chunk = n*0.05
+!	    chunk = 16
+
+	    print*, 'Chunk = ', chunk
+	    print*
+
+            do while((it < max_it))
+
+!$omp parallel do & 
+!$omp& default(shared) private(i, j) &
+!$omp& schedule(dynamic, chunk)
+
+                do i=1, (m-1)
+		    do j=1, (n-1)
                         u_novo(i, j) = (u_novo(i-1, j) + u_ant(i+1, j) + &
                                         u_novo(i, j-1) + u_ant(i, j+1) - &
-                                        ((h**2)*f(i, j, m, n, x, y)))/(4.d0)
-                    end do 
-                end do
-                delta = dif_rel(u_novo, u_ant, m, n)
-                k = k+1 
+                                        ((h*h)*f(i, j, m, n, x, y)))*(0.25d0)
+		   end do             
+		end do
+
+!$omp end parallel do
+		
+		it = it + 1
                 u_ant = u_novo 
             end do
-            print*, 'Quantidade de iterações:', k
-            
+
         end subroutine sub_metodo_gauss_seidel
-    
+        
     !#######################################################################################################
     
 end module met_gs
